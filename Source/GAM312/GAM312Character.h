@@ -122,9 +122,14 @@ protected:
 	 */
 	void LookUpAtRate(float Rate);
 
+	// Initiate or switch camera views
 	void SwitchCameras();
 
+	// Exit Camera views
 	void ExitCameraView();
+
+	// Raycast and print out name of hit actor
+	void DisplayRaycast();
 
 	struct TouchData
 	{

@@ -12,6 +12,7 @@
 #include "MotionControllerComponent.h"
 #include "XRMotionControllerBase.h" // for FXRMotionControllerBase::RightHandSourceId
 #include "Kismet/GameplayStatics.h"
+#include "Engine.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogFPChar, Warning, All);
 
@@ -126,6 +127,9 @@ void AGAM312Character::SetupPlayerInputComponent(class UInputComponent* PlayerIn
 	// SecurityCamera Controller
 	PlayerInputComponent->BindAction("SwitchCameras", IE_Pressed, this, &AGAM312Character::SwitchCameras);
 	PlayerInputComponent->BindAction("ExitCameraView", IE_Pressed, this, &AGAM312Character::ExitCameraView);
+
+	// Raycast
+	PlayerInputComponent->BindAction("Raycast", IE_Pressed, this, &AGAM312Character::DisplayRaycast);
 
 	// Enable touchscreen input
 	EnableTouchscreenMovement(PlayerInputComponent);
@@ -295,31 +299,40 @@ void AGAM312Character::LookUpAtRate(float Rate)
 
 void AGAM312Character::SwitchCameras()
 {
+	// Check if we are not  viewing a camera
 	if (!viewingCamera)
 	{
+		// See if we are over bounds of array
 		if (allCameras.IsValidIndex(currentCameraIndex))
 		{
+			// Switch over to camera and set viewing camera to true
 			OurPlayerController->SetViewTargetWithBlend(allCameras[currentCameraIndex]);
 			viewingCamera = true;
 		}
 
+		// If we were over bounds, make sure that there is a valid camera initialized in the array
 		else if (allCameras.IsValidIndex(0))
 		{
+			// Reset index and switch over to viewing camera
 			currentCameraIndex = 0;
 			OurPlayerController->SetViewTargetWithBlend(allCameras[currentCameraIndex]);
 			viewingCamera = true;
 		}
 	}
 
+	// Check if we are already viewing a camera
 	if (viewingCamera)
 	{
+		// Increment index
 		currentCameraIndex++;
 
+		// Check if index is valid and switch cameras
 		if (allCameras.IsValidIndex(currentCameraIndex))
 		{
 			OurPlayerController->SetViewTargetWithBlend(allCameras[currentCameraIndex], smoothBlend);
 		}
 
+		// If previous index was not valid, check if array is valid and switch camera
 		else if (allCameras.IsValidIndex(0))
 		{
 			currentCameraIndex = 0;
@@ -330,10 +343,26 @@ void AGAM312Character::SwitchCameras()
 
 void AGAM312Character::ExitCameraView()
 {
+	// If viewing camera then switch back to player
 	if (viewingCamera)
 	{
 		OurPlayerController->SetViewTargetWithBlend(this, smoothBlend);
 		viewingCamera = false;
+	}
+}
+
+void AGAM312Character::DisplayRaycast()
+{
+	FHitResult* hit = new FHitResult();
+	FVector StartTrace = FirstPersonCameraComponent->GetComponentLocation();
+	FVector ForwardVector = FirstPersonCameraComponent->GetForwardVector();
+	FVector EndTrace = ((ForwardVector * 3319.0f) + StartTrace);
+	FCollisionQueryParams* TraceParams = new FCollisionQueryParams();
+
+	if (GetWorld()->LineTraceSingleByChannel(*hit, StartTrace, EndTrace, ECC_Visibility, *TraceParams))
+	{
+		DrawDebugLine(GetWorld(), StartTrace, EndTrace, FColor(255, 0, 0), true);
+		GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red, FString::Printf(TEXT("You hit: %s"), *hit->Actor->GetName()));
 	}
 }
 
