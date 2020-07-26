@@ -46,13 +46,19 @@ class AGAM312Character : public ACharacter
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, meta = (AllowPrivateAccess = "true"))
 	class UMotionControllerComponent* L_MotionController;
 
+	UPROPERTY(VisibleAnywhere, Category = Grapple)
+		class UParticleSystemComponent* Beam;
+
 public:
 	AGAM312Character();
 
 protected:
 	virtual void BeginPlay();
+	
 
 public:
+	virtual void Tick(float DeltaTime) override;
+
 	/** Base turn rate, in deg/sec. Other scaling may affect final turn rate. */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category=Camera)
 	float BaseTurnRate;
@@ -96,6 +102,25 @@ public:
 	UPROPERTY(EditAnywhere, Category = SecurityCamera)
 		float smoothBlend = 0.75f;
 
+	// Grapple Vars
+	UPROPERTY(EditAnywhere, Category = Grapple)
+		float grappleSpeed = 200;
+
+	UPROPERTY(VisibleAnywhere, Category = Grapple)
+		bool grappling = false;
+
+	UPROPERTY(EditAnywhere, Category = Grapple)
+		float lerpSpeed = 0.05f;
+
+	UPROPERTY(VisibleAnywhere, Category = Grapple)
+		FVector grappleToLocation;
+
+	UPROPERTY(EditAnywhere, Category = Grapple)
+		float grappleTraceDistance = 3000;
+
+	UPROPERTY(EditAnywhere, Category = Grapple)
+		float grappleBreakOffDistance = 200;
+
 protected:
 	
 	/** Fires a projectile. */
@@ -130,6 +155,10 @@ protected:
 
 	// Raycast and print out name of hit actor
 	void DisplayRaycast();
+
+	// Grapple Events
+	void BeginGrapple();
+	void EndGrapple();
 
 	struct TouchData
 	{

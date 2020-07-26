@@ -38,6 +38,14 @@ void AGAM312Projectile::OnHit(UPrimitiveComponent* HitComp, AActor* OtherActor, 
 	{
 		OtherComp->AddImpulseAtLocation(GetVelocity() * 100.0f, GetActorLocation());
 
+		// Check if other actor implements antigrav interface
+		IProjectileInteraction* pointerToInterface = Cast<IProjectileInteraction>(OtherActor);
+		if (pointerToInterface != nullptr)
+		{
+			// Send Antigrav mech
+			pointerToInterface->Execute_TriggerAntiGravMechanic(OtherActor);
+		}
+
 		Destroy();
 	}
 }

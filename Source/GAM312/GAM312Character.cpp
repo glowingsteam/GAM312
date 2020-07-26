@@ -84,6 +84,10 @@ AGAM312Character::AGAM312Character()
 
 	// Uncomment the following line to turn motion controllers on by default:
 	//bUsingMotionControllers = true;
+
+	Beam = CreateDefaultSubobject<UParticleSystemComponent>(TEXT("GrappleBeam"));
+	Beam->SetupAttachment(Mesh1P, TEXT("hand_l"));
+	Beam->SetVisibility(false, false);
 }
 
 void AGAM312Character::BeginPlay()
@@ -109,6 +113,27 @@ void AGAM312Character::BeginPlay()
 	OurPlayerController = UGameplayStatics::GetPlayerController(this, 0);
 }
 
+void AGAM312Character::Tick(float DeltaTime)
+{
+	Super::Tick(DeltaTime);
+
+	if (grappling)
+	{
+		// Check if we are within range of break off distance and end grapple
+		if (FVector::Distance(GetActorLocation(),  grappleToLocation) < grappleBreakOffDistance)
+		{
+			EndGrapple();
+		}
+		// else lerp velocity to get to location
+		else
+		{
+			GetCharacterMovement()->Velocity = FMath::Lerp(GetCharacterMovement()->Velocity, (grappleToLocation - GetActorLocation()) * grappleSpeed, lerpSpeed);
+			Beam->SetBeamSourcePoint(0, FP_Gun->GetComponentLocation(), 0);
+			Beam->SetBeamTargetPoint(0, grappleToLocation, 0);
+		}
+	}
+}
+
 //////////////////////////////////////////////////////////////////////////
 // Input
 
@@ -130,6 +155,10 @@ void AGAM312Character::SetupPlayerInputComponent(class UInputComponent* PlayerIn
 
 	// Raycast
 	PlayerInputComponent->BindAction("Raycast", IE_Pressed, this, &AGAM312Character::DisplayRaycast);
+	
+	// Grapple
+	PlayerInputComponent->BindAction("Grapple", IE_Pressed, this, &AGAM312Character::BeginGrapple);
+	PlayerInputComponent->BindAction("Grapple", IE_Released, this, &AGAM312Character::EndGrapple);
 
 	// Enable touchscreen input
 	EnableTouchscreenMovement(PlayerInputComponent);
@@ -364,6 +393,38 @@ void AGAM312Character::DisplayRaycast()
 		DrawDebugLine(GetWorld(), StartTrace, EndTrace, FColor(255, 0, 0), true);
 		GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red, FString::Printf(TEXT("You hit: %s"), *hit->Actor->GetName()));
 	}
+}
+
+void AGAM312Character::BeginGrapple()
+{
+	if (!grappling)
+	{
+		FHitResult* hit = new FHitResult();
+		FVector StartTrace = FirstPersonCameraComponent->GetComponentLocation();
+		FVector ForwardVector = FirstPersonCameraComponent->GetForwardVector();
+		FVector EndTrace = ((ForwardVector * grappleTraceDistance) + StartTrace);
+		FCollisionQueryParams* TraceParams = new FCollisionQueryParams();
+
+		if (GetWorld()->LineTraceSingleByChannel(*hit, StartTrace, EndTrace, ECC_Visibility, *TraceParams))
+		{
+			if (hit->bBlockingHit)
+			{
+				Beam->SetVisibility(true, false);
+				Beam->SetBeamSourcePoint(0, FP_Gun->GetComponentLocation(), 0);
+				Beam->SetBeamTargetPoint(0, hit->ImpactPoint, 0);
+				grappleToLocation = hit->ImpactPoint;
+				GetCharacterMovement()->SetMovementMode(EMovementMode::MOVE_Flying);
+				grappling = true;
+			}
+		}
+	}
+}
+
+void AGAM312Character::EndGrapple()
+{
+	GetCharacterMovement()->SetMovementMode(EMovementMode::MOVE_Walking);
+	grappling = false;
+	Beam->SetVisibility(false, false);
 }
 
 bool AGAM312Character::EnableTouchscreenMovement(class UInputComponent* PlayerInputComponent)

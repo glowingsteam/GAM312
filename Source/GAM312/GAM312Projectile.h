@@ -4,6 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
+#include "iface\ProjectileInteraction.h"
 #include "GAM312Projectile.generated.h"
 
 UCLASS(config=Game)
