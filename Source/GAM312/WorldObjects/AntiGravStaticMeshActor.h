@@ -5,6 +5,7 @@
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
 #include "iface\ProjectileInteraction.h"
+#include "TimerManager.h"
 #include "AntiGravStaticMeshActor.generated.h"
 
 UCLASS()
