@@ -110,7 +110,14 @@ void AGAM312Character::BeginPlay()
 		Mesh1P->SetHiddenInGame(false, true);
 	}
 
+	// Set our player controller ref
 	OurPlayerController = UGameplayStatics::GetPlayerController(this, 0);
+
+	// Set current health to max
+	currentHealth = maxHealth;
+
+	// Set grapple mana to max
+	currentGrappleMana = maxGrappleMana;
 }
 
 void AGAM312Character::Tick(float DeltaTime)
@@ -124,14 +131,52 @@ void AGAM312Character::Tick(float DeltaTime)
 		{
 			EndGrapple();
 		}
-		// else lerp velocity to get to location
+		
 		else
 		{
+			// else lerp velocity to get to location
 			GetCharacterMovement()->Velocity = FMath::Lerp(GetCharacterMovement()->Velocity, (grappleToLocation - GetActorLocation()) * grappleSpeed, lerpSpeed);
 			Beam->SetBeamSourcePoint(0, FP_Gun->GetComponentLocation(), 0);
 			Beam->SetBeamTargetPoint(0, grappleToLocation, 0);
+
+			// Drain Mana & Break if less than zero
+			currentGrappleMana = currentGrappleMana - (grappleManaDrainRate * DeltaTime);
+			UE_LOG(LogTemp, Warning, TEXT("Current Mana: %f"), currentGrappleMana);
+			if (currentGrappleMana <= 0.0f)
+			{
+				EndGrapple();
+			}
 		}
 	}
+
+
+	// Mana recovery
+	else
+	{
+		currentGrappleMana = FMath::Clamp(currentGrappleMana + (grappleManaRecoveryRate * DeltaTime), 0.0f, maxGrappleMana);
+	}
+}
+
+float AGAM312Character::TakeDamage(float DamageAmount, FDamageEvent const & DamageEvent, AController * EventInstigator, AActor * DamageCauser)
+{
+	// Save super return value for output
+	float superReturn = Super::TakeDamage(DamageAmount, DamageEvent, EventInstigator, DamageCauser);
+
+	// Process Damage
+	currentHealth = FMath::Clamp(currentHealth - DamageAmount, -1.0f, 100.0f);
+
+	// Check if Dead
+	if (currentHealth <= 0.0f)
+	{
+		UGameplayStatics::OpenLevel(this, FName(*GetWorld()->GetName()), false);
+		UE_LOG(LogTemp, Warning, TEXT("Dead"));
+	}
+
+	// Debug
+	UE_LOG(LogTemp, Warning, TEXT("Current Health: %f"), currentHealth);
+
+	// Return super value
+	return superReturn;
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -397,7 +442,8 @@ void AGAM312Character::DisplayRaycast()
 
 void AGAM312Character::BeginGrapple()
 {
-	if (!grappling)
+	// If not grappling and current mana is greater than minimum
+	if (!grappling && currentGrappleMana >= grappleMinimum)
 	{
 		FHitResult* hit = new FHitResult();
 		FVector StartTrace = FirstPersonCameraComponent->GetComponentLocation();

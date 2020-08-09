@@ -54,10 +54,13 @@ public:
 
 protected:
 	virtual void BeginPlay();
+
+	
 	
 
 public:
 	virtual void Tick(float DeltaTime) override;
+	virtual float TakeDamage(float DamageAmount, struct FDamageEvent const & DamageEvent, class AController * EventInstigator, AActor * DamageCauser) override;
 
 	/** Base turn rate, in deg/sec. Other scaling may affect final turn rate. */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category=Camera)
@@ -120,6 +123,24 @@ public:
 
 	UPROPERTY(EditAnywhere, Category = Grapple)
 		float grappleBreakOffDistance = 200;
+
+	// Health System
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Health)
+		float currentHealth;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Health)
+		float maxHealth = 100.0f;
+
+	// Grapple Mana
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Grapple)
+		float currentGrappleMana;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Grapple)
+		float maxGrappleMana = 100.0f;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Grapple)
+		float grappleManaDrainRate = 10.0f;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Grapple)
+		float grappleManaRecoveryRate = 5.0f;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Grapple)
+		float grappleMinimum = 20.0f;
 
 protected:
 	
