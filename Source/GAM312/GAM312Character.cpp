@@ -12,6 +12,8 @@
 #include "MotionControllerComponent.h"
 #include "XRMotionControllerBase.h" // for FXRMotionControllerBase::RightHandSourceId
 #include "Kismet/GameplayStatics.h"
+#include "iface\InteractionInterface.h"
+#include "WorldObjects\PhysicsPickupActor.h"
 #include "Engine.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogFPChar, Warning, All);
@@ -82,6 +84,11 @@ AGAM312Character::AGAM312Character()
 	VR_MuzzleLocation->SetRelativeLocation(FVector(0.000004, 53.999992, 10.000000));
 	VR_MuzzleLocation->SetRelativeRotation(FRotator(0.0f, 90.0f, 0.0f));		// Counteract the rotation of the VR gun model.
 
+	// Make Physics attach location
+	PhysicsAttachLocation = CreateDefaultSubobject<USceneComponent>(TEXT("Physics Attach Location"));
+	PhysicsAttachLocation->SetupAttachment(Mesh1P);
+	PhysicsAttachLocation->SetRelativeLocation(FVector(400.0f, 0.0f, 0.0f));
+
 	// Uncomment the following line to turn motion controllers on by default:
 	//bUsingMotionControllers = true;
 
@@ -124,6 +131,7 @@ void AGAM312Character::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 
+	// The grappling mechanic utilizes Linear Algebra concepts by smoothly lerping between the players current velocity and a generated vector based on the direction to the grapple location * a scalar value
 	if (grappling)
 	{
 		// Check if we are within range of break off distance and end grapple
@@ -148,12 +156,17 @@ void AGAM312Character::Tick(float DeltaTime)
 			}
 		}
 	}
-
-
-	// Mana recovery
+	// Grapple Mana recovery
 	else
 	{
 		currentGrappleMana = FMath::Clamp(currentGrappleMana + (grappleManaRecoveryRate * DeltaTime), 0.0f, maxGrappleMana);
+	}
+
+	if (pickingUpObject )
+	{
+		pickedUpComp->SetWorldLocation(PhysicsAttachLocation->GetComponentLocation());
+		pickedUpComp->SetWorldRotation(PhysicsAttachLocation->GetComponentRotation());
+		//UE_LOG(LogTemp, Warning, TEXT("Picked up Object Location - X: %f Y: %f Z: %f"), pickedUpObject->GetActorLocation().X, pickedUpObject->GetActorLocation().Y, pickedUpObject->GetActorLocation().Z);
 	}
 }
 
@@ -204,6 +217,9 @@ void AGAM312Character::SetupPlayerInputComponent(class UInputComponent* PlayerIn
 	// Grapple
 	PlayerInputComponent->BindAction("Grapple", IE_Pressed, this, &AGAM312Character::BeginGrapple);
 	PlayerInputComponent->BindAction("Grapple", IE_Released, this, &AGAM312Character::EndGrapple);
+
+	// Pickup
+	PlayerInputComponent->BindAction("Pickup", IE_Pressed, this, &AGAM312Character::PushPickupPhysicsObject);
 
 	// Enable touchscreen input
 	EnableTouchscreenMovement(PlayerInputComponent);
@@ -443,7 +459,7 @@ void AGAM312Character::DisplayRaycast()
 void AGAM312Character::BeginGrapple()
 {
 	// If not grappling and current mana is greater than minimum
-	if (!grappling && currentGrappleMana >= grappleMinimum)
+	if (!grappling && currentGrappleMana >= grappleMinimum && !pickingUpObject)
 	{
 		FHitResult* hit = new FHitResult();
 		FVector StartTrace = FirstPersonCameraComponent->GetComponentLocation();
@@ -471,6 +487,71 @@ void AGAM312Character::EndGrapple()
 	GetCharacterMovement()->SetMovementMode(EMovementMode::MOVE_Walking);
 	grappling = false;
 	Beam->SetVisibility(false, false);
+}
+
+void AGAM312Character::PushPickupPhysicsObject()
+{
+	// Ensure we are not grappling
+	if (!grappling)
+	{
+		// Check if we are already picking up object and the object is not a nullptr
+		if (pickingUpObject && pickedUpObject != nullptr)
+		{
+			// Get pointer and call interface msg
+			IInteractionInterface* pointerToInterface = Cast<IInteractionInterface>(pickedUpObject);
+			if (pointerToInterface != nullptr)
+			{
+				pointerToInterface->Execute_ReleaseCube(pickedUpObject);
+			}
+
+			// Reset vars
+			pickingUpObject = false;
+			pickedUpObject = nullptr;
+		}
+
+		// Otherwise find a new object to trace to
+		else
+		{
+			UE_LOG(LogTemp, Warning, TEXT("Starting Trace"));
+			// Setup vars to trace for object
+			FHitResult* hit = new FHitResult();
+			FVector StartTrace = FirstPersonCameraComponent->GetComponentLocation();
+			FVector ForwardVector = FirstPersonCameraComponent->GetForwardVector();
+			FVector EndTrace = ((ForwardVector * 1000.0f) + StartTrace);
+			FCollisionQueryParams* TraceParams = new FCollisionQueryParams();
+
+			// Trace for object
+			if (GetWorld()->LineTraceSingleByChannel(*hit, StartTrace, EndTrace, ECC_Visibility, *TraceParams))
+			{
+				if (hit->Actor->ActorHasTag(FName("Pickup")))
+				//if (true)
+				{
+					// Get pointer and call interface msg
+					IInteractionInterface* pointerToInterface = Cast<IInteractionInterface>(hit->Actor);
+					if (pointerToInterface != nullptr)
+					{
+						// Set pick up object and save reference to mesh for tick
+						pickingUpObject = true;
+						pickedUpObject = hit->GetActor();
+						pickedUpComp = Cast<APhysicsPickupActor>(hit->GetActor())->MeshComponent;
+						pointerToInterface->Execute_PickupCube(pickedUpObject);
+					}
+					else
+					{
+						UE_LOG(LogTemp, Warning, TEXT("No Interface"));
+					}
+				}
+				else
+				{
+					UE_LOG(LogTemp, Warning, TEXT("No Tag"));
+				}
+			}
+			else
+			{
+				UE_LOG(LogTemp, Warning, TEXT("Hit Nothing"));
+			}
+		}
+	}
 }
 
 bool AGAM312Character::EnableTouchscreenMovement(class UInputComponent* PlayerInputComponent)

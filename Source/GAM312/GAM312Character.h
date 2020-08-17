@@ -47,7 +47,10 @@ class AGAM312Character : public ACharacter
 	class UMotionControllerComponent* L_MotionController;
 
 	UPROPERTY(VisibleAnywhere, Category = Grapple)
-		class UParticleSystemComponent* Beam;
+	class UParticleSystemComponent* Beam;
+
+	UPROPERTY(VisibleDefaultsOnly, Category = Mesh)
+	class USceneComponent* PhysicsAttachLocation;
 
 public:
 	AGAM312Character();
@@ -142,6 +145,15 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Grapple)
 		float grappleMinimum = 20.0f;
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Physics)
+		bool pickingUpObject = false;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Physics)
+		AActor* pickedUpObject;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Physics)
+		class UStaticMeshComponent* pickedUpComp;
+
 protected:
 	
 	/** Fires a projectile. */
@@ -180,6 +192,9 @@ protected:
 	// Grapple Events
 	void BeginGrapple();
 	void EndGrapple();
+
+	// Physics Interaction
+	void PushPickupPhysicsObject();
 
 	struct TouchData
 	{
